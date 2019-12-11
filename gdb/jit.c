@@ -651,12 +651,14 @@ finalize_symtab (struct gdb_symtab *stab, struct objfile *objfile)
   size_t blockvector_size;
   CORE_ADDR begin, end;
   struct blockvector *bv;
+  enum language language;
 
   actual_nblocks = FIRST_LOCAL_BLOCK + stab->nblocks;
 
   cust = allocate_compunit_symtab (objfile, stab->file_name);
   allocate_symtab (cust, stab->file_name);
   add_compunit_symtab_to_objfile (cust);
+  language = compunit_language(cust);
 
   /* JIT compilers compile in memory.  */
   COMPUNIT_DIRNAME (cust) = NULL;
@@ -739,7 +741,7 @@ finalize_symtab (struct gdb_symtab *stab, struct objfile *objfile)
 		   ? allocate_global_block (&objfile->objfile_obstack)
 		   : allocate_block (&objfile->objfile_obstack));
       BLOCK_MULTIDICT (new_block)
-	= mdict_create_linear (&objfile->objfile_obstack, NULL);
+	= mdict_create_linear_expandable(language);
       BLOCK_SUPERBLOCK (new_block) = block_iter;
       block_iter = new_block;
 
@@ -771,6 +773,8 @@ finalize_symtab (struct gdb_symtab *stab, struct objfile *objfile)
 	  BLOCK_SUPERBLOCK (gdb_block_iter->real_block) =
 	    BLOCKVECTOR_BLOCK (bv, STATIC_BLOCK);
 	}
+	/* Add any function name to GLOBAL_BLOCK dict to make them available for setting breakpoints */
+	mdict_add_symbol(BLOCK_MULTIDICT(BLOCKVECTOR_BLOCK (bv, GLOBAL_BLOCK)), BLOCK_FUNCTION(gdb_block_iter->real_block));
     }
 
   /* Free memory.  */
@@ -815,6 +819,9 @@ jit_object_close_impl (struct gdb_symbol_callbacks *cb,
     }
   add_objfile_entry (objfile, *priv_data);
   xfree (obj);
+
+  /* Pending breakpoints might be visible now */
+  breakpoint_re_set();
 }
 
 /* Try to read CODE_ENTRY using the loaded jit reader (if any).
