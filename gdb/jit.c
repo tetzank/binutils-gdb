@@ -778,13 +778,15 @@ finalize_symtab (struct gdb_symtab *stab, struct objfile *objfile)
     }
 
   /* Free memory.  */
-  gdb_block_iter = stab->blocks;
-
-  for (gdb_block_iter = stab->blocks, gdb_block_iter_tmp = gdb_block_iter->next;
+  for (gdb_block_iter = stab->blocks;
        gdb_block_iter;
        gdb_block_iter = gdb_block_iter_tmp)
     {
+      /* Free name of block */
       xfree ((void *) gdb_block_iter->name);
+      /* Save pointer to next block in temporary */
+      gdb_block_iter_tmp = gdb_block_iter->next;
+      /* Free current block */
       xfree (gdb_block_iter);
     }
   xfree (stab->linetable);
